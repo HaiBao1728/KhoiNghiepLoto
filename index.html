@@ -1,65 +1,109 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản lý Lô Tô</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
 <body>
-  <h1>Quản lý tiền chơi Lô Tô</h1>
+  <div class="app-container">
+    <header class="app-header">
+      <h1><i class="fas fa-dice"></i> Hụi Lô Tô Khởi Nghiệp</h1>
+    </header>
 
-  <section id="player-section">
-    <h2>Thêm người chơi</h2>
-    <input type="text" id="name" placeholder="Tên người chơi">
-    <input type="number" id="cards" placeholder="Số tờ lô tô">
-    <button onclick="addPlayer()">Thêm</button>
-  </section>
-
-  <section id="game-section">
-    <h2>Ván chơi mới</h2>
-    <input type="number" id="ticketPrice" placeholder="Giá mỗi tờ">
-    <button onclick="startGame()">Xác nhận bắt đầu</button>
-    <p>Tổng số ván đã chơi: <span id="roundCount">0</span></p>
-  </section>
-
-    <section id="winner-section" style="display:none;">
-        <h2>Chọn người thắng ván này</h2>
-
-        <p><strong>Tổng tiền thưởng ván này:</strong> <span id="current-total">0</span></p>
-
-        <div id="winner-dropdowns">
-            <select class="winner-select"></select>
+    <main class="app-content">
+      <section class="card player-section">
+        <h2><i class="fas fa-user-plus"></i> Thêm shark</h2>
+        <div class="form-group">
+          <input type="text" id="name" placeholder="Tên người chơi" class="form-input">
+          <input type="number" id="cards" placeholder="Số tờ lô tô" class="form-input">
+          <button onclick="addPlayer()" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Thêm
+          </button>
         </div>
+      </section>
 
-        <button onclick="addWinnerSelect()">➕ Thêm người thắng</button>
-        <button onclick="setWinners()">✅ Cập nhật kết quả</button>
-    </section>
+      <section class="card game-section">
+        <h2><i class="fas fa-gamepad"></i> Hụi mới</h2>
+        <div class="form-group">
+          <input type="number" id="ticketPrice" placeholder="Giá mỗi tờ" class="form-input">
+          <button onclick="startGame()" class="btn btn-success">
+            <i class="fas fa-play"></i> Gét go
+          </button>
+        </div>
+        <p class="round-count">Tổng số ván đã chơi: <span id="roundCount">0</span></p>
+      </section>
 
-  <section id="results">
-    <h2>Bảng kết quả</h2>
-    <button onclick="toggleSelectAll()">Chọn/Bỏ chọn tất cả</button>
-    <table border="1">
-      <thead>
-        <tr>
-          <th>Tham gia</th>
-          <th>Tên</th>
-          <th>Số tờ</th>
-          <th>Tổng lời/lỗ (VNĐ)</th>
-        </tr>
-      </thead>
-      <tbody id="player-table"></tbody>
-    </table>
-  </section>
+      <section id="winner-section" class="card winner-section" style="display:none;">
+        <h2><i class="fas fa-trophy"></i> Kết quả ván chơi</h2>
+        <div class="winner-info">
+          <p><strong>Tổng tiền thưởng:</strong> <span id="current-total">0</span> VNĐ</p>
+        </div>
+        
+        <div id="winner-dropdowns" class="winner-selectors">
+          <select class="winner-select form-input"></select>
+        </div>
+        
+        <div class="winner-actions">
+          <button onclick="addWinnerSelect()" class="btn btn-secondary">
+            <i class="fas fa-plus-circle"></i> Shark hốt hụi
+          </button>
+          <button onclick="setWinners()" class="btn btn-primary">
+            <i class="fas fa-check"></i> Xác nhận
+          </button>
+        </div>
+      </section>
 
-    <!-- Lịch sử -->
-    <button onclick="toggleHistory()">📜 Ẩn/Hiện lịch sử ván chơi</button>
-    <section id="history-section" style="display: none;">
-    <h2>Lịch sử các ván chơi</h2>
-    <table id="history-table" border="1">
-        <thead>
-        <tr>
-            <th>Ván #</th>
-            <th>Người thắng</th>
-            <th>Tổng tiền ván</th>
-            <th>Tiền mỗi người nhận</th>
-        </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
-    </section>
+      <section class="card results-section">
+        <div class="section-header">
+          <h2><i class="fas fa-list-ol"></i> Bảng kết quả</h2>
+          <button onclick="toggleSelectAll()" class="btn btn-outline">
+            <i class="fas fa-check-double"></i> Chọn/Bỏ chọn tất cả
+          </button>
+        </div>
+        
+        <div class="table-responsive">
+          <table class="results-table">
+            <thead>
+              <tr>
+                <th width="50px">Tham gia</th>
+                <th>Tên</th>
+                <th width="120px">Số tờ</th>
+                <th width="150px">Tổng tiền hụi</th>
+              </tr>
+            </thead>
+            <tbody id="player-table"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card history-section" id="history-section" style="display: none;">
+        <div class="section-header">
+          <h2><i class="fas fa-history"></i> Lịch sử ván chơi</h2>
+          <button onclick="toggleHistory()" class="btn btn-outline">
+            <i class="fas fa-eye-slash"></i> Ẩn
+          </button>
+        </div>
+        
+        <div class="table-responsive">
+          <table id="history-table" class="history-table">
+            <thead>
+              <tr>
+                <th width="80px">Ván #</th>
+                <th>Người thắng</th>
+                <th width="150px">Tổng tiền</th>
+                <th width="150px">Tiền mỗi người</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
 
   <script src="script.js"></script>
 </body>
+</html>

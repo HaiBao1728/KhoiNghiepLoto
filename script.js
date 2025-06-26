@@ -64,15 +64,25 @@ function updateCards(index, newVal) {
 }
 
 function createWinnerSelect() {
-    const select = document.createElement("select");
-    select.className = "winner-select";
-    players.forEach(p => {
-        const option = document.createElement("option");
-        option.value = p.name;
-        option.textContent = p.name;
-        select.appendChild(option);
-    });
-    return select;
+  const select = document.createElement("select");
+  select.className = "winner-select form-input";
+  
+  // Option mặc định
+  const defaultOption = document.createElement("option");
+  defaultOption.value = "";
+  defaultOption.textContent = "-- Chọn người thắng --";
+  defaultOption.selected = true;
+  select.appendChild(defaultOption);
+  
+  // Thêm options
+  players.forEach(player => {
+    const option = document.createElement("option");
+    option.value = player.name;
+    option.textContent = player.name;
+    select.appendChild(option);
+  });
+  
+  return select;
 }
 
 function addWinnerSelect() {
@@ -106,7 +116,17 @@ function renderHistory() {
 
 function toggleHistory() {
   const section = document.getElementById("history-section");
-  section.style.display = section.style.display === "none" ? "block" : "none";
+  const buttonIcon = document.querySelector("#history-section button i");
+  
+  if (section.style.display === "none" || !section.style.display) {
+    section.style.display = "block";
+    buttonIcon.className = "fas fa-eye-slash";
+    buttonIcon.parentElement.innerHTML = '<i class="fas fa-eye-slash"></i> Ẩn';
+  } else {
+    section.style.display = "none";
+    buttonIcon.className = "fas fa-eye";
+    buttonIcon.parentElement.innerHTML = '<i class="fas fa-eye"></i> Hiện lịch sử';
+  }
 }
 
 function setWinners() {
