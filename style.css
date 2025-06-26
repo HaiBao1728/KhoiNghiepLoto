@@ -314,11 +314,9 @@ body {
 }
 
 .history-section {
-  /*display: none; Mặc định ẩn */
   transition: all 0.3s ease;
 }
 
-/* Khi hiển thị */
 .history-section[style*="display: block"] {
   display: block !important;
 }

@@ -151,27 +151,43 @@ function renderHistory() {
 function deleteHistoryItem(index) {
   if (confirm("Bạn có chắc muốn xóa ván chơi này? Thao tác này sẽ hoàn tiền cho người chơi và trừ tiền người thắng.")) {
     const game = history[index];
-    
-    // Hoàn tiền cho người chơi (cộng lại số tiền đã đóng)
-    players.forEach(p => {
-      p.balance += p.cards * (game.totalMoney / game.winners.length / p.cards);
-    });
-    
-    // Trừ tiền người thắng
+
+    // Kiểm tra dữ liệu tồn tại đầy đủ
+    if (!game.total || !game.share || !Array.isArray(game.winners)) {
+      alert("Dữ liệu ván chơi không đầy đủ, không thể hoàn tác.");
+      return;
+    }
+
+    // ✅ Hoàn tiền lại cho người chơi đã tham gia (nếu lưu selectedPlayers)
+    if (Array.isArray(game.selectedPlayers)) {
+      const numSelected = game.selectedPlayers.length;
+      const refundPerPlayer = Math.floor(game.total / numSelected);
+
+      game.selectedPlayers.forEach(name => {
+        const player = players.find(p => p.name === name);
+        if (player) player.balance += refundPerPlayer;
+      });
+    } else {
+      // Nếu không có selectedPlayers (backward compatibility), hoàn đều cho tất cả
+      const refundPerPlayer = Math.floor(game.total / players.length);
+      players.forEach(p => p.balance += refundPerPlayer);
+    }
+
+    // ✅ Trừ tiền người thắng
     game.winners.forEach(winnerName => {
       const winner = players.find(p => p.name === winnerName);
       if (winner) winner.balance -= game.share;
     });
-    
+
     // Xóa khỏi lịch sử
     history.splice(index, 1);
     localStorage.setItem("history", JSON.stringify(history));
-    
+
     // Giảm số ván đã chơi
     roundCount--;
     localStorage.setItem("roundCount", roundCount);
-    
-    // Cập nhật giao diện
+
+    // Cập nhật lại giao diện
     renderTable();
     renderHistory();
     saveAll();
@@ -214,7 +230,8 @@ function setWinners() {
     round: roundCount + 1,
     winners: uniqueNames,
     total: game.totalMoney,
-    share: share
+    share: share,
+    selectedPlayers: game.selectedPlayers
   });
   
   localStorage.setItem("history", JSON.stringify(history));
@@ -238,6 +255,7 @@ function loadFromStorage() {
 function startGame() {
   const priceInput = document.getElementById("ticketPrice");
   const inputPrice = parseInt(priceInput.value);
+
   if (!isNaN(inputPrice) && inputPrice > 0) ticketPrice = inputPrice;
 
   if (ticketPrice <= 0) return alert("Nhập giá trị mỗi tờ hợp lệ!");
@@ -262,6 +280,10 @@ function startGame() {
   dropdownContainer.appendChild(createWinnerSelect());
 
   document.getElementById("winner-section").style.display = "block";
+
+  const selectedPlayers = players.filter(p => p.selected).map(p => p.name);
+  localStorage.setItem("currentGame", JSON.stringify({ ticketPrice, totalMoney, selectedPlayers }));
+  
   saveAll();
 }
 
