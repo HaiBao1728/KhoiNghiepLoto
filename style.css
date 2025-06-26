@@ -314,13 +314,43 @@ body {
 }
 
 .history-section {
-  display: none; /* Mặc định ẩn */
+  /*display: none; Mặc định ẩn */
   transition: all 0.3s ease;
 }
 
 /* Khi hiển thị */
 .history-section[style*="display: block"] {
   display: block !important;
+}
+
+.delete-history-btn {
+  color: var(--danger-color);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 5px;
+}
+
+.delete-history-btn:hover {
+  color: #c82333;
+}
+
+.winner-select-container {
+  position: relative;
+  margin-bottom: 10px;
+}
+
+.remove-winner-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--danger-color);
+  cursor: pointer;
+  font-size: 0.9rem;
 }
 
 @media (max-width: 480px) {

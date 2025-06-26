@@ -68,9 +68,9 @@
           <table class="results-table">
             <thead>
               <tr>
-                <th width="50px">Tham gia</th>
+                <th width="100px">Tham gia</th>
                 <th>Tên</th>
-                <th width="120px">Số tờ</th>
+                <th width="70px">Số tờ</th>
                 <th width="150px">Tổng tiền hụi</th>
               </tr>
             </thead>
@@ -79,7 +79,7 @@
         </div>
       </section>
 
-      <section class="card history-section" id="history-section" style="display: none;">
+      <section id="history-section" class="card history-section">
         <div class="section-header">
           <h2><i class="fas fa-history"></i> Lịch sử ván chơi</h2>
           <button onclick="toggleHistory()" class="btn btn-outline">
@@ -87,18 +87,21 @@
           </button>
         </div>
         
-        <div class="table-responsive">
-          <table id="history-table" class="history-table">
-            <thead>
-              <tr>
-                <th width="80px">Ván #</th>
-                <th>Người thắng</th>
-                <th width="150px">Tổng tiền</th>
-                <th width="150px">Tiền mỗi người</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+        <div id="history-content" style="display:none;">
+          <div class="table-responsive">
+            <table id="history-table" class="history-table">
+              <thead>
+                <tr>
+                  <th width="80px">Ván #</th>
+                  <th>Người thắng</th>
+                  <th width="150px">Tổng tiền</th>
+                  <th width="150px">Tiền mỗi người</th>
+                  <th width="100px">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
         </div>
       </section>
     </main>

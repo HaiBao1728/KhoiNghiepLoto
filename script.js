@@ -64,6 +64,9 @@ function updateCards(index, newVal) {
 }
 
 function createWinnerSelect() {
+  const container = document.createElement("div");
+  container.className = "winner-select-container";
+  
   const select = document.createElement("select");
   select.className = "winner-select form-input";
   
@@ -82,50 +85,109 @@ function createWinnerSelect() {
     select.appendChild(option);
   });
   
-  return select;
+  // Thêm nút xóa
+  if (document.querySelectorAll(".winner-select-container").length > 0) {
+    const removeBtn = document.createElement("button");
+    removeBtn.className = "remove-winner-btn";
+    removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+    removeBtn.onclick = function() {
+      container.remove();
+    };
+    container.appendChild(removeBtn);
+  }
+  
+  container.appendChild(select);
+  return container;
 }
 
 function addWinnerSelect() {
   const container = document.getElementById("winner-dropdowns");
-  container.appendChild(createWinnerSelect());
+  // Nếu chưa có select nào, tạo select đầu tiên không có nút xóa
+  if (container.children.length === 0) {
+    const firstSelect = createWinnerSelect();
+    firstSelect.querySelector(".remove-winner-btn")?.remove();
+    container.appendChild(firstSelect);
+  } else {
+    container.appendChild(createWinnerSelect());
+  }
 }
 
 function renderHistory() {
   const tbody = document.querySelector("#history-table tbody");
   tbody.innerHTML = "";
-  history.forEach(h => {
+  
+  history.forEach((h, index) => {
     const row = document.createElement("tr");
 
     const roundCell = document.createElement("td");
     roundCell.textContent = h.round;
+    
     const winnerCell = document.createElement("td");
     winnerCell.textContent = h.winners.join(", ");
+    
     const totalCell = document.createElement("td");
-    totalCell.textContent = h.total;
+    totalCell.textContent = h.total.toLocaleString() + " VNĐ";
+    
     const shareCell = document.createElement("td");
-    shareCell.textContent = h.share;
-
+    shareCell.textContent = h.share.toLocaleString() + " VNĐ";
+    
+    const actionCell = document.createElement("td");
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "delete-history-btn";
+    deleteBtn.innerHTML = '<i class="fas fa-trash"></i> Xóa';
+    deleteBtn.onclick = () => deleteHistoryItem(index);
+    actionCell.appendChild(deleteBtn);
+    
     row.appendChild(roundCell);
     row.appendChild(winnerCell);
     row.appendChild(totalCell);
     row.appendChild(shareCell);
+    row.appendChild(actionCell);
 
     tbody.appendChild(row);
   });
 }
 
+function deleteHistoryItem(index) {
+  if (confirm("Bạn có chắc muốn xóa ván chơi này? Thao tác này sẽ hoàn tiền cho người chơi và trừ tiền người thắng.")) {
+    const game = history[index];
+    
+    // Hoàn tiền cho người chơi (cộng lại số tiền đã đóng)
+    players.forEach(p => {
+      p.balance += p.cards * (game.totalMoney / game.winners.length / p.cards);
+    });
+    
+    // Trừ tiền người thắng
+    game.winners.forEach(winnerName => {
+      const winner = players.find(p => p.name === winnerName);
+      if (winner) winner.balance -= game.share;
+    });
+    
+    // Xóa khỏi lịch sử
+    history.splice(index, 1);
+    localStorage.setItem("history", JSON.stringify(history));
+    
+    // Giảm số ván đã chơi
+    roundCount--;
+    localStorage.setItem("roundCount", roundCount);
+    
+    // Cập nhật giao diện
+    renderTable();
+    renderHistory();
+    saveAll();
+  }
+}
+
 function toggleHistory() {
-  const section = document.getElementById("history-section");
-  const buttonIcon = document.querySelector("#history-section button i");
+  const content = document.getElementById("history-content");
+  const button = document.querySelector("#history-section button");
   
-  if (section.style.display === "none" || !section.style.display) {
-    section.style.display = "block";
-    buttonIcon.className = "fas fa-eye-slash";
-    buttonIcon.parentElement.innerHTML = '<i class="fas fa-eye-slash"></i> Ẩn';
+  if (content.style.display === "none") {
+    content.style.display = "block";
+    button.innerHTML = '<i class="fas fa-eye-slash"></i> Ẩn';
   } else {
-    section.style.display = "none";
-    buttonIcon.className = "fas fa-eye";
-    buttonIcon.parentElement.innerHTML = '<i class="fas fa-eye"></i> Hiện lịch sử';
+    content.style.display = "none";
+    button.innerHTML = '<i class="fas fa-eye"></i> Hiện';
   }
 }
 
@@ -134,13 +196,15 @@ function setWinners() {
   if (!game) return alert("Không có dữ liệu ván!");
 
   const selects = document.querySelectorAll(".winner-select");
-  const winnerNames = Array.from(selects).map(select => select.value);
+  const winnerNames = Array.from(selects)
+    .map(select => select.value)
+    .filter(name => name); // Loại bỏ giá trị rỗng
 
-  // Loại bỏ trùng tên
+  if (winnerNames.length === 0) return alert("Chưa chọn người thắng!");
+
   const uniqueNames = [...new Set(winnerNames)];
-  if (uniqueNames.length === 0) return alert("Chưa chọn người thắng!");
-
   const share = Math.floor(game.totalMoney / uniqueNames.length);
+  
   uniqueNames.forEach(name => {
     const player = players.find(p => p.name === name);
     if (player) player.balance += share;
@@ -152,6 +216,7 @@ function setWinners() {
     total: game.totalMoney,
     share: share
   });
+  
   localStorage.setItem("history", JSON.stringify(history));
   renderHistory();
 
@@ -166,7 +231,7 @@ function loadFromStorage() {
   const storedHistory = JSON.parse(localStorage.getItem("history"));
   if (storedPlayers) players = storedPlayers;
   if (storedHistory) history = storedHistory;
-  renderPlayers();
+  //renderPlayers();
   renderHistory();
 }
 
