@@ -348,7 +348,7 @@ function setWinners() {
   
   saveAll();
   
-  alert(`Đã xác nhận ${uniqueNames.length} người thắng, nhận ${share.toLocaleString()} VNĐ!`);
+  //alert(`Đã xác nhận ${uniqueNames.length} người thắng, nhận ${share.toLocaleString()} VNĐ!`);
 }
 
 function resetBalances() {
