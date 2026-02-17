@@ -4,7 +4,7 @@ let roundCount = parseInt(localStorage.getItem('roundCount')) || 0;
 let history = JSON.parse(localStorage.getItem("history")) || [];
 let currentSession = JSON.parse(localStorage.getItem("currentSession")) || {
   id: "default",
-  name: "Phiên mặc định"
+  name: "First time"
 };
 
 function saveAll() {
@@ -189,7 +189,7 @@ function deleteHistoryItem(index) {
     return;
   }
 
-  if (confirm("Bạn có chắc muốn xóa ván chơi này? Thao tác này sẽ hoàn tiền cho người chơi và trừ tiền người thắng.")) {
+  if (confirm("Muốn xóa ván chơi này? Thao tác này sẽ hoàn tiền cho người chơi và trừ tiền người thắng.")) {
     const game = history[index];
 
     if (!game.total || !game.share || !Array.isArray(game.winners)) {
@@ -202,12 +202,11 @@ function deleteHistoryItem(index) {
       balancesBefore[p.name] = p.balance;
     });
 
-    if (Array.isArray(game.selectedPlayers)) {
-      game.selectedPlayers.forEach(name => {
-        const player = players.find(p => p.name === name);
+    if (Array.isArray(game.playerCards)) {
+      game.playerCards.forEach(pc => {
+        const player = players.find(p => p.name === pc.name);
         if (player) {
-          const paidAmount = (game.playerCards?.find(pc => pc.name === name)?.cards || 0) * game.ticketPrice;
-          player.balance += paidAmount;
+          player.balance += pc.cards * game.ticketPrice;
         }
       });
     }
@@ -297,59 +296,61 @@ function setWinners() {
   const selects = document.querySelectorAll(".winner-select");
   const winnerNames = Array.from(selects)
     .map(select => select.value)
-    .filter(name => name);
+    .filter(Boolean);
 
   if (winnerNames.length === 0) {
-    alert("Vui lòng chọn ít nhất một người chiến thắng!");
+    alert("Vui lòng chọn ít nhất một người thắng!");
     return;
   }
 
-  const selectedPlayers = game.selectedPlayers || players.filter(p => p.selected).map(p => p.name);
-  const invalidWinners = winnerNames.filter(name => !selectedPlayers.includes(name));
-  
-  if (invalidWinners.length > 0) {
-    alert(`Người chơi "${invalidWinners.join(', ')}" không tham gia ván này!`);
-    return;
-  }
+  const uniqueWinners = [...new Set(winnerNames)];
+  const selectedPlayers = players.filter(p => p.selected);
 
-  const uniqueNames = [...new Set(winnerNames)];
-  const share = Math.floor(game.totalMoney / uniqueNames.length);
-  
-  players.forEach(p => {
-    if (p.selected) {
-      p.balance -= p.cards * game.ticketPrice;
-    }
+  const totalMoney = selectedPlayers.reduce(
+    (sum, p) => sum + p.cards * game.ticketPrice,
+    0
+  );
+
+  const share = Math.floor(totalMoney / uniqueWinners.length);
+
+  selectedPlayers.forEach(p => {
+    p.balance -= p.cards * game.ticketPrice;
   });
 
-  uniqueNames.forEach(name => {
-    const player = players.find(p => p.name === name);
-    if (player) player.balance += share;
+  uniqueWinners.forEach(name => {
+    const winner = players.find(p => p.name === name);
+    if (winner) winner.balance += share;
   });
 
   history.push({
     sessionId: currentSession.id,
     sessionName: currentSession.name,
     round: roundCount + 1,
-    winners: uniqueNames,
-    total: game.totalMoney,
+
+    winners: uniqueWinners,
+    total: totalMoney,
     share: share,
-    selectedPlayers: selectedPlayers,
-    ticketPrice: game.ticketPrice
+    ticketPrice: game.ticketPrice,
+
+    playerCards: selectedPlayers.map(p => ({
+      name: p.name,
+      cards: p.cards
+    }))
   });
-  
+
   localStorage.setItem("history", JSON.stringify(history));
-  renderHistory();
 
   roundCount++;
+  localStorage.setItem("roundCount", roundCount);
+
   localStorage.removeItem("currentGame");
   document.getElementById("winner-section").style.display = "none";
-  
   document.getElementById("ticketPrice").value = "";
-  
+
+  renderHistory();
   saveAll();
-  
-  //alert(`Đã xác nhận ${uniqueNames.length} người thắng, nhận ${share.toLocaleString()} VNĐ!`);
 }
+
 
 function resetBalances() {
   if (players.length === 0) {
@@ -471,3 +472,231 @@ renderTable();
 document.addEventListener("DOMContentLoaded", function () {
   loadFromStorage();
 });
+
+function clearAllStorage() {
+  showConfirmModal(
+    "XÓA TOÀN BỘ DỮ LIỆU?",
+    `<br>• Xóa toàn bộ người chơi
+    <br>• Xóa tất cả lịch sử (mọi kỳ)
+    <br>• Reset toàn bộ ứng dụng
+    <br><br><strong>KHÔNG THỂ HOÀN TÁC!</strong>`,
+    () => {
+      localStorage.clear();
+
+      players = [];
+      history = [];
+      ticketPrice = 0;
+      roundCount = 0;
+      currentSession = {
+        id: "default",
+        name: "Phiên mặc định"
+      };
+
+      renderTable();
+      renderHistory();
+
+      //alert("Đã xóa toàn bộ dữ liệu! Ứng dụng sẽ tải lại.");
+
+      location.reload();
+    }
+  );
+}
+
+function exportBySessionMatrixStyled() {
+  if (!history.length) {
+    alert("Không có dữ liệu để xuất!");
+    return;
+  }
+
+  const wb = XLSX.utils.book_new();
+
+  const sessions = history.reduce((acc, h) => {
+    if (!acc[h.sessionId]) acc[h.sessionId] = [];
+    acc[h.sessionId].push(h);
+    return acc;
+  }, {});
+
+  Object.values(sessions).forEach(games => {
+    games.sort((a, b) => a.round - b.round);
+
+    const sessionName = games[0].sessionName || "Ky choi";
+    const maxRound = Math.max(...games.map(g => g.round));
+
+    const members = Array.from(
+      new Set(
+        games.flatMap(g => g.playerCards?.map(p => p.name) || [])
+      )
+    ).sort();
+
+    const aoa = [];
+
+    /* ================= HEADER (VÁN + GIÁ MỖI TỜ) ================= */
+    const roundHeaders = [];
+    for (let r = 1; r <= maxRound; r++) {
+      const g = games.find(x => x.round === r);
+      if (g && g.ticketPrice) {
+        roundHeaders.push(`${r} (${g.ticketPrice})`);
+      } else {
+        roundHeaders.push(String(r));
+      }
+    }
+
+    const mainHeader = [
+      "Sharks/Ván (cá/tờ)",
+      ...roundHeaders,
+      "Đóng hụi (cá)",
+      "Hốt hụi (cá)",
+      "Tổng cá sau khởi nghiệp"
+    ];
+    aoa.push(mainHeader);
+
+    /* ================= NGƯỜI CHƠI ================= */
+    members.forEach(name => {
+      const row = [name];
+      let totalBet = 0;
+      let totalWin = 0;
+
+      for (let r = 1; r <= maxRound; r++) {
+        const g = games.find(x => x.round === r);
+        if (!g) {
+          row.push("");
+          continue;
+        }
+
+        const pc = g.playerCards?.find(p => p.name === name);
+        if (!pc) {
+          row.push("");
+          continue;
+        }
+
+        const betMoney = pc.cards * g.ticketPrice;
+        totalBet += betMoney;
+
+        if (Array.isArray(g.winners) && g.winners.includes(name)) {
+          row.push("K");
+          totalWin += g.share;
+        } else {
+          row.push(pc.cards);
+        }
+      }
+
+      row.push(-totalBet);
+      row.push(totalWin);
+      row.push(totalWin - totalBet);
+
+      aoa.push(row);
+    });
+
+    /* ================= DÒNG TRỐNG NGĂN CÁCH ================= */
+    const emptyRow = [""];
+    for (let i = 1; i <= maxRound + 3; i++) emptyRow.push("");
+    aoa.push(emptyRow);
+
+    /* ================= TỔNG HỤI / VÁN ================= */
+    const totalRow = ["Tổng hụi/ván"];
+    for (let r = 1; r <= maxRound; r++) {
+      const g = games.find(x => x.round === r);
+      if (!g || !Array.isArray(g.playerCards)) {
+        totalRow.push("");
+        continue;
+      }
+
+      const totalMoney = g.playerCards.reduce(
+        (sum, p) => sum + p.cards * g.ticketPrice,
+        0
+      );
+      totalRow.push(totalMoney);
+    }
+    totalRow.push("", "", "");
+    aoa.push(totalRow);
+
+    /* ================= KINH CHIA ================= */
+    const kinhChiRow = ["Kinh chia"];
+    for (let r = 1; r <= maxRound; r++) {
+      const g = games.find(x => x.round === r);
+      if (!g || !Array.isArray(g.winners) || g.winners.length === 0) {
+        kinhChiRow.push("");
+        continue;
+      }
+      kinhChiRow.push(Math.floor(g.total / g.winners.length));
+    }
+    kinhChiRow.push("", "", "");
+    aoa.push(kinhChiRow);
+
+    /* ================= TẠO SHEET ================= */
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    /* ================= ĐỘ RỘNG CỘT ================= */
+    const cols = [];
+    for (let i = 0; i <= maxRound + 3; i++) {
+      if (i === 0) cols.push({ wch: 18 });
+      else if (i <= maxRound) cols.push({ wch: 8 });
+      else cols.push({ wch: 18 });
+    }
+    ws["!cols"] = cols;
+
+    /* ================= STYLE ================= */
+    const range = XLSX.utils.decode_range(ws["!ref"]);
+    const totalRowIndex = members.length + 2;
+    const kinhRowIndex = members.length + 3;
+
+    for (let R = 0; R <= range.e.r; R++) {
+      for (let C = 0; C <= range.e.c; C++) {
+        const cellRef = XLSX.utils.encode_cell({ r: R, c: C });
+        if (!ws[cellRef]) ws[cellRef] = { t: "s", v: "" };
+
+        ws[cellRef].s = {
+          alignment: {
+            horizontal: C === 0 ? "left" : "center",
+            vertical: "center"
+          },
+          border: {
+            top: { style: "thin", color: { rgb: "000000" } },
+            bottom: { style: "thin", color: { rgb: "000000" } },
+            left: { style: "thin", color: { rgb: "000000" } },
+            right: { style: "thin", color: { rgb: "000000" } }
+          }
+        };
+
+        if (R === 0) {
+          ws[cellRef].s.font = { bold: true, color: { rgb: "FFFFFF" } };
+          ws[cellRef].s.fill = { fgColor: { rgb: "4472C4" } };
+        }
+
+        if (ws[cellRef].v === "K") {
+          ws[cellRef].s.fill = { fgColor: { rgb: "FFE699" } };
+          ws[cellRef].s.font = { bold: true };
+        }
+
+        if (R === totalRowIndex) {
+          ws[cellRef].s.fill = { fgColor: { rgb: "DDEBF7" } };
+          ws[cellRef].s.font = { bold: true };
+        }
+
+        if (R === kinhRowIndex) {
+          ws[cellRef].s.fill = { fgColor: { rgb: "FCE4D6" } };
+          ws[cellRef].s.font = { bold: true };
+        }
+
+        if (C >= maxRound + 1 && typeof ws[cellRef].v === "number") {
+          ws[cellRef].z = "#,##0";
+          if (C === maxRound + 3 && ws[cellRef].v < 0) {
+            ws[cellRef].s.font = { color: { rgb: "FF0000" } };
+          }
+        }
+      }
+    }
+
+    XLSX.utils.book_append_sheet(wb, ws, sessionName.slice(0, 31));
+  });
+
+  XLSX.writeFile(
+    wb,
+    `Hui_Export_${new Date().toISOString().slice(0, 10)}.xlsx`
+  );
+}
+
+
+
+
+

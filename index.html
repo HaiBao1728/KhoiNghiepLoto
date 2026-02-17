@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quản lý Lô Tô</title>
+  <title>Lô Tô Khởi Nghiệp</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -61,7 +61,7 @@
           <h2><i class="fas fa-list-ol"></i> Bảng kết quả</h2>
           <div class="btn-group">
             <button onclick="resetBalances()" class="btn btn-warning">
-              <i class="fas fa-redo-alt"></i> Reset số dư
+              <i class="fas fa-redo-alt"></i> Reset hụi
             </button>
             <button onclick="toggleSelectAll()" class="btn btn-outline">
               <i class="fas fa-check-double"></i> Chọn/Bỏ chọn tất cả
@@ -94,6 +94,12 @@
             <!-- <button onclick="deleteAllHistory()" class="btn btn-danger">
               <i class="fas fa-trash-alt"></i> Xóa tất cả
             </button> -->
+            <button onclick="clearAllStorage()" class="btn btn-danger">
+              <i class="fas fa-bomb"></i> Clear toàn bộ dữ liệu
+            </button>
+            <button onclick="exportBySessionMatrixStyled()" class="btn btn-success">
+              <i class="fas fa-file-excel"></i> Xuất Excel (Matrix)
+            </button>
           </div>
         </div>
         
@@ -117,6 +123,7 @@
     </main>
   </div>
 
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
