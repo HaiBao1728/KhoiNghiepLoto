@@ -372,3 +372,58 @@ body {
     width: 100%;
   }
 }
+
+
+/* Thêm vào file style.css */
+.btn-danger {
+  background-color: var(--danger-color);
+  color: white;
+}
+
+.btn-danger:hover {
+  background-color: #c82333;
+}
+
+.history-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Style cho modal xác nhận */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 25px;
+  border-radius: var(--border-radius);
+  max-width: 400px;
+  width: 90%;
+  box-shadow: var(--shadow);
+}
+
+.modal-content h3 {
+  color: var(--danger-color);
+  margin-bottom: 15px;
+}
+
+.modal-content p {
+  margin-bottom: 20px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
