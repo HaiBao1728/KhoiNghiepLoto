@@ -2,6 +2,10 @@ let players = JSON.parse(localStorage.getItem('players')) || [];
 let ticketPrice = JSON.parse(localStorage.getItem('ticketPrice')) || 0;
 let roundCount = parseInt(localStorage.getItem('roundCount')) || 0;
 let history = JSON.parse(localStorage.getItem("history")) || [];
+let currentSession = JSON.parse(localStorage.getItem("currentSession")) || {
+  id: "default",
+  name: "Phiên mặc định"
+};
 
 function saveAll() {
   localStorage.setItem('players', JSON.stringify(players));
@@ -128,40 +132,63 @@ function addWinnerSelect() {
 function renderHistory() {
   const tbody = document.querySelector("#history-table tbody");
   tbody.innerHTML = "";
-  
-  history.forEach((h, index) => {
-    const row = document.createElement("tr");
 
-    const roundCell = document.createElement("td");
-    roundCell.textContent = h.round;
-    
-    const winnerCell = document.createElement("td");
-    winnerCell.textContent = h.winners.join(", ");
-    
-    const totalCell = document.createElement("td");
-    totalCell.textContent = h.total.toLocaleString() + " VNĐ";
-    
-    const shareCell = document.createElement("td");
-    shareCell.textContent = h.share.toLocaleString() + " VNĐ";
-    
-    const actionCell = document.createElement("td");
-    const deleteBtn = document.createElement("button");
-    deleteBtn.className = "delete-history-btn";
-    deleteBtn.innerHTML = '<i class="fas fa-trash"></i> Xóa';
-    deleteBtn.onclick = () => deleteHistoryItem(index);
-    actionCell.appendChild(deleteBtn);
-    
-    row.appendChild(roundCell);
-    row.appendChild(winnerCell);
-    row.appendChild(totalCell);
-    row.appendChild(shareCell);
-    row.appendChild(actionCell);
+  if (history.length === 0) return;
 
-    tbody.appendChild(row);
+  const grouped = history.reduce((acc, h) => {
+    if (!acc[h.sessionId]) {
+      acc[h.sessionId] = {
+        name: h.sessionName || "Phiên cũ",
+        games: []
+      };
+    }
+    acc[h.sessionId].games.push(h);
+    return acc;
+  }, {});
+
+  Object.keys(grouped).forEach(sessionId => {
+    const session = grouped[sessionId];
+
+    const headerRow = document.createElement("tr");
+    headerRow.className = "session-header-row";
+
+    const headerCell = document.createElement("td");
+    headerCell.colSpan = 5;
+    headerCell.innerHTML = `<strong></strong> ${session.name}`;
+    headerCell.style.fontWeight = "bold";
+
+    headerRow.appendChild(headerCell);
+    tbody.appendChild(headerRow);
+
+    session.games.forEach((h, index) => {
+      const row = document.createElement("tr");
+
+      row.innerHTML = `
+        <td>${h.round}</td>
+        <td>${h.winners.join(", ")}</td>
+        <td>${h.total.toLocaleString()} VNĐ</td>
+        <td>${h.share.toLocaleString()} VNĐ</td>
+        <td>
+          <button class="delete-history-btn" onclick="deleteHistoryItem(${history.indexOf(h)})">
+            <i class="fas fa-trash"></i> Xóa
+          </button>
+        </td>
+      `;
+
+      tbody.appendChild(row);
+    });
   });
 }
 
+
 function deleteHistoryItem(index) {
+  const game = history[index];
+
+  if (game.sessionId !== currentSession.id) {
+    alert("Không thể xóa ván thuộc kỳ chơi cũ!");
+    return;
+  }
+
   if (confirm("Bạn có chắc muốn xóa ván chơi này? Thao tác này sẽ hoàn tiền cho người chơi và trừ tiền người thắng.")) {
     const game = history[index];
 
@@ -170,23 +197,30 @@ function deleteHistoryItem(index) {
       return;
     }
 
-    if (Array.isArray(game.selectedPlayers)) {
-      const numSelected = game.selectedPlayers.length;
-      const refundPerPlayer = Math.floor(game.total / numSelected);
+    const balancesBefore = {};
+    players.forEach(p => {
+      balancesBefore[p.name] = p.balance;
+    });
 
+    if (Array.isArray(game.selectedPlayers)) {
       game.selectedPlayers.forEach(name => {
         const player = players.find(p => p.name === name);
-        if (player) player.balance += refundPerPlayer;
+        if (player) {
+          const paidAmount = (game.playerCards?.find(pc => pc.name === name)?.cards || 0) * game.ticketPrice;
+          player.balance += paidAmount;
+        }
       });
-    } else {
-      const refundPerPlayer = Math.floor(game.total / players.length);
-      players.forEach(p => p.balance += refundPerPlayer);
     }
 
     game.winners.forEach(winnerName => {
       const winner = players.find(p => p.name === winnerName);
-      if (winner) winner.balance -= game.share;
+      if (winner) {
+        winner.balance -= game.share;
+      }
     });
+
+    console.log('Trước khi xóa:', balancesBefore);
+    console.log('Sau khi xóa:', players.map(p => ({ name: p.name, balance: p.balance })));
 
     history.splice(index, 1);
     localStorage.setItem("history", JSON.stringify(history));
@@ -229,18 +263,15 @@ function startGame() {
 
   if (ticketPrice <= 0) return alert("Nhập giá trị mỗi tờ hợp lệ!");
 
-  // Kiểm tra có người chơi được chọn không
   const selectedPlayersList = players.filter(p => p.selected);
   if (selectedPlayersList.length === 0) {
     return alert("Vui lòng chọn ít nhất một người chơi!");
   }
 
-  // Tính tổng tiền từ những người tham gia (KHÔNG trừ tiền ngay)
   const totalMoney = players.reduce((sum, p) => {
     return p.selected ? sum + p.cards * ticketPrice : sum;
   }, 0);
 
-  // Lưu thông tin ván chơi
   const gameData = { 
     ticketPrice, 
     totalMoney, 
@@ -250,15 +281,12 @@ function startGame() {
   
   localStorage.setItem("currentGame", JSON.stringify(gameData));
 
-  // Hiển thị tổng tiền
   document.getElementById("current-total").textContent = totalMoney.toLocaleString();
 
-  // Tạo dropdown chọn người thắng
   const dropdownContainer = document.getElementById("winner-dropdowns");
   dropdownContainer.innerHTML = "";
   dropdownContainer.appendChild(createWinnerSelect());
 
-  // Hiển thị section chọn người thắng
   document.getElementById("winner-section").style.display = "block";
 }
 
@@ -287,21 +315,20 @@ function setWinners() {
   const uniqueNames = [...new Set(winnerNames)];
   const share = Math.floor(game.totalMoney / uniqueNames.length);
   
-  // *** CHỈ TRỪ TIỀN NGƯỜI CHƠI KHI ĐÃ CHỌN NGƯỜI THẮNG ***
   players.forEach(p => {
     if (p.selected) {
       p.balance -= p.cards * game.ticketPrice;
     }
   });
 
-  // Cộng tiền cho người thắng
   uniqueNames.forEach(name => {
     const player = players.find(p => p.name === name);
     if (player) player.balance += share;
   });
 
-  // Lưu vào lịch sử
   history.push({
+    sessionId: currentSession.id,
+    sessionName: currentSession.name,
     round: roundCount + 1,
     winners: uniqueNames,
     total: game.totalMoney,
@@ -330,18 +357,28 @@ function resetBalances() {
     return;
   }
 
-  showConfirmModal(
-    "Reset số dư",
-    `Muốn đặt lại số dư của tất cả các shark về 0? 
-    \n- Lịch sử ván chơi sẽ được giữ nguyên
-    \n- Chỉ số dư hiện tại được reset
-    \n- Không thể hoàn tác!`,
-    () => {
-      players.forEach(p => p.balance = 0);
-      saveAll();
-      alert("Đã reset số dư thành công!");
-    }
+  const sessionName = prompt(
+    "Nhập tên kỳ chơi mới:",
+    `Kỳ ${new Date().toLocaleDateString()}`
   );
+
+  if (!sessionName) return;
+
+  players.forEach(p => p.balance = 0);
+
+  currentSession = {
+    id: Date.now().toString(),
+    name: sessionName
+  };
+
+  roundCount = 0;
+
+  localStorage.setItem("currentSession", JSON.stringify(currentSession));
+  localStorage.setItem("roundCount", roundCount);
+
+  saveAll();
+
+  alert(`Đã bắt đầu kỳ mới: ${sessionName}`);
 }
 
 function deleteAllHistory() {
@@ -352,32 +389,34 @@ function deleteAllHistory() {
 
   showConfirmModal(
     "Xóa toàn bộ lịch sử?",
-    `Muốn xóa tất cả ${history.length} ván chơi? Hành động này sẽ: 
-    \n- Hoàn tiền cho tất cả shark
-    \n- Trừ tiền của tất cả shark thắng
+    `Muốn xóa tất cả ${history.length} ván chơi? 
+    \n- Hoàn lại tiền đã đóng cho tất cả các shark
+    \n- Trừ lại tiền thưởng của shark thắng
+    \n- Đưa số dư về trạng thái trước tất cả các ván
     \n- Không thể hoàn tác!`,
     () => {
-      history.forEach(game => {
-        if (!game.total || !game.share || !Array.isArray(game.winners)) return;
+      for (let i = history.length - 1; i >= 0; i--) {
+        const game = history[i];
+        
+        if (!game.total || !game.share || !Array.isArray(game.winners)) continue;
 
         if (Array.isArray(game.selectedPlayers)) {
-          const numSelected = game.selectedPlayers.length;
-          const refundPerPlayer = Math.floor(game.total / numSelected);
-
           game.selectedPlayers.forEach(name => {
             const player = players.find(p => p.name === name);
-            if (player) player.balance += refundPerPlayer;
+            if (player) {
+              const paidAmount = (game.playerCards?.find(pc => pc.name === name)?.cards || 0) * game.ticketPrice;
+              player.balance += paidAmount;
+            }
           });
-        } else {
-          const refundPerPlayer = Math.floor(game.total / players.length);
-          players.forEach(p => p.balance += refundPerPlayer);
         }
 
         game.winners.forEach(winnerName => {
           const winner = players.find(p => p.name === winnerName);
-          if (winner) winner.balance -= game.share;
+          if (winner) {
+            winner.balance -= game.share;
+          }
         });
-      });
+      }
 
       history = [];
       roundCount = 0;

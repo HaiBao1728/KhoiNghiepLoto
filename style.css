@@ -469,3 +469,15 @@ body {
     flex: 1;
   }
 }
+
+.session-header-row td {
+  background-color: #f1f3f5;
+  color: #333;
+  font-size: 1rem;
+  padding: 10px 15px;
+  border-top: 2px solid var(--primary-color);
+}
+
+.session-header-row td {
+  background: linear-gradient(90deg, #eef2ff, #f8f9fa);
+}
