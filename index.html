@@ -59,9 +59,14 @@
       <section class="card results-section">
         <div class="section-header">
           <h2><i class="fas fa-list-ol"></i> Bảng kết quả</h2>
-          <button onclick="toggleSelectAll()" class="btn btn-outline">
-            <i class="fas fa-check-double"></i> Chọn/Bỏ chọn tất cả
-          </button>
+          <div class="btn-group">
+            <button onclick="resetBalances()" class="btn btn-warning">
+              <i class="fas fa-redo-alt"></i> Reset số dư
+            </button>
+            <button onclick="toggleSelectAll()" class="btn btn-outline">
+              <i class="fas fa-check-double"></i> Chọn/Bỏ chọn tất cả
+            </button>
+          </div>
         </div>
         
         <div class="table-responsive">

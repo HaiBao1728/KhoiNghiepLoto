@@ -69,23 +69,27 @@ function createWinnerSelect() {
   
   const select = document.createElement("select");
   select.className = "winner-select form-input";
+  select.required = true;
   
-  // Option mặc định
   const defaultOption = document.createElement("option");
   defaultOption.value = "";
   defaultOption.textContent = "-- Chọn người thắng --";
   defaultOption.selected = true;
+  defaultOption.disabled = true;
   select.appendChild(defaultOption);
   
-  // Thêm options
+  const game = JSON.parse(localStorage.getItem("currentGame"));
+  const selectedPlayers = game?.selectedPlayers || players.filter(p => p.selected).map(p => p.name);
+  
   players.forEach(player => {
-    const option = document.createElement("option");
-    option.value = player.name;
-    option.textContent = player.name;
-    select.appendChild(option);
+    if (selectedPlayers.includes(player.name)) {
+      const option = document.createElement("option");
+      option.value = player.name;
+      option.textContent = player.name;
+      select.appendChild(option);
+    }
   });
   
-  // Thêm nút xóa
   if (document.querySelectorAll(".winner-select-container").length > 0) {
     const removeBtn = document.createElement("button");
     removeBtn.className = "remove-winner-btn";
@@ -102,7 +106,16 @@ function createWinnerSelect() {
 
 function addWinnerSelect() {
   const container = document.getElementById("winner-dropdowns");
-  // Nếu chưa có select nào, tạo select đầu tiên không có nút xóa
+  const game = JSON.parse(localStorage.getItem("currentGame"));
+  const selectedPlayers = game?.selectedPlayers || players.filter(p => p.selected).map(p => p.name);
+  
+  const currentSelects = document.querySelectorAll(".winner-select").length;
+  
+  if (currentSelects >= selectedPlayers.length) {
+    alert(`Không thể thêm quá số lượng người tham gia (${selectedPlayers.length} người)!`);
+    return;
+  }
+  
   if (container.children.length === 0) {
     const firstSelect = createWinnerSelect();
     firstSelect.querySelector(".remove-winner-btn")?.remove();
@@ -152,13 +165,11 @@ function deleteHistoryItem(index) {
   if (confirm("Bạn có chắc muốn xóa ván chơi này? Thao tác này sẽ hoàn tiền cho người chơi và trừ tiền người thắng.")) {
     const game = history[index];
 
-    // Kiểm tra dữ liệu tồn tại đầy đủ
     if (!game.total || !game.share || !Array.isArray(game.winners)) {
       alert("Dữ liệu ván chơi không đầy đủ, không thể hoàn tác.");
       return;
     }
 
-    // ✅ Hoàn tiền lại cho người chơi đã tham gia (nếu lưu selectedPlayers)
     if (Array.isArray(game.selectedPlayers)) {
       const numSelected = game.selectedPlayers.length;
       const refundPerPlayer = Math.floor(game.total / numSelected);
@@ -168,26 +179,21 @@ function deleteHistoryItem(index) {
         if (player) player.balance += refundPerPlayer;
       });
     } else {
-      // Nếu không có selectedPlayers (backward compatibility), hoàn đều cho tất cả
       const refundPerPlayer = Math.floor(game.total / players.length);
       players.forEach(p => p.balance += refundPerPlayer);
     }
 
-    // ✅ Trừ tiền người thắng
     game.winners.forEach(winnerName => {
       const winner = players.find(p => p.name === winnerName);
       if (winner) winner.balance -= game.share;
     });
 
-    // Xóa khỏi lịch sử
     history.splice(index, 1);
     localStorage.setItem("history", JSON.stringify(history));
 
-    // Giảm số ván đã chơi
     roundCount--;
     localStorage.setItem("roundCount", roundCount);
 
-    // Cập nhật lại giao diện
     renderTable();
     renderHistory();
     saveAll();
@@ -207,48 +213,11 @@ function toggleHistory() {
   }
 }
 
-function setWinners() {
-  const game = JSON.parse(localStorage.getItem("currentGame"));
-  if (!game) return alert("Không có dữ liệu ván!");
-
-  const selects = document.querySelectorAll(".winner-select");
-  const winnerNames = Array.from(selects)
-    .map(select => select.value)
-    .filter(name => name); // Loại bỏ giá trị rỗng
-
-  if (winnerNames.length === 0) return alert("Chưa chọn người thắng!");
-
-  const uniqueNames = [...new Set(winnerNames)];
-  const share = Math.floor(game.totalMoney / uniqueNames.length);
-  
-  uniqueNames.forEach(name => {
-    const player = players.find(p => p.name === name);
-    if (player) player.balance += share;
-  });
-
-  history.push({
-    round: roundCount + 1,
-    winners: uniqueNames,
-    total: game.totalMoney,
-    share: share,
-    selectedPlayers: game.selectedPlayers
-  });
-  
-  localStorage.setItem("history", JSON.stringify(history));
-  renderHistory();
-
-  roundCount++;
-  localStorage.removeItem("currentGame");
-  document.getElementById("winner-section").style.display = "none";
-  saveAll();
-}
-
 function loadFromStorage() {
   const storedPlayers = JSON.parse(localStorage.getItem("players"));
   const storedHistory = JSON.parse(localStorage.getItem("history"));
   if (storedPlayers) players = storedPlayers;
   if (storedHistory) history = storedHistory;
-  //renderPlayers();
   renderHistory();
 }
 
@@ -260,76 +229,137 @@ function startGame() {
 
   if (ticketPrice <= 0) return alert("Nhập giá trị mỗi tờ hợp lệ!");
 
-  // Trừ tiền cho những người được chọn
-  players.forEach(p => {
-    if (p.selected) p.balance -= p.cards * ticketPrice;
-  });
+  // Kiểm tra có người chơi được chọn không
+  const selectedPlayersList = players.filter(p => p.selected);
+  if (selectedPlayersList.length === 0) {
+    return alert("Vui lòng chọn ít nhất một người chơi!");
+  }
 
-  // Tính tổng tiền từ những người tham gia
+  // Tính tổng tiền từ những người tham gia (KHÔNG trừ tiền ngay)
   const totalMoney = players.reduce((sum, p) => {
     return p.selected ? sum + p.cards * ticketPrice : sum;
   }, 0);
 
-  localStorage.setItem("currentGame", JSON.stringify({ ticketPrice, totalMoney }));
+  // Lưu thông tin ván chơi
+  const gameData = { 
+    ticketPrice, 
+    totalMoney, 
+    selectedPlayers: selectedPlayersList.map(p => p.name),
+    playerCards: selectedPlayersList.map(p => ({ name: p.name, cards: p.cards }))
+  };
+  
+  localStorage.setItem("currentGame", JSON.stringify(gameData));
 
+  // Hiển thị tổng tiền
   document.getElementById("current-total").textContent = totalMoney.toLocaleString();
 
-
+  // Tạo dropdown chọn người thắng
   const dropdownContainer = document.getElementById("winner-dropdowns");
   dropdownContainer.innerHTML = "";
   dropdownContainer.appendChild(createWinnerSelect());
 
+  // Hiển thị section chọn người thắng
   document.getElementById("winner-section").style.display = "block";
+}
 
-  const selectedPlayers = players.filter(p => p.selected).map(p => p.name);
-  localStorage.setItem("currentGame", JSON.stringify({ ticketPrice, totalMoney, selectedPlayers }));
+function setWinners() {
+  const game = JSON.parse(localStorage.getItem("currentGame"));
+  if (!game) return alert("Không có dữ liệu ván!");
+
+  const selects = document.querySelectorAll(".winner-select");
+  const winnerNames = Array.from(selects)
+    .map(select => select.value)
+    .filter(name => name);
+
+  if (winnerNames.length === 0) {
+    alert("Vui lòng chọn ít nhất một người chiến thắng!");
+    return;
+  }
+
+  const selectedPlayers = game.selectedPlayers || players.filter(p => p.selected).map(p => p.name);
+  const invalidWinners = winnerNames.filter(name => !selectedPlayers.includes(name));
+  
+  if (invalidWinners.length > 0) {
+    alert(`Người chơi "${invalidWinners.join(', ')}" không tham gia ván này!`);
+    return;
+  }
+
+  const uniqueNames = [...new Set(winnerNames)];
+  const share = Math.floor(game.totalMoney / uniqueNames.length);
+  
+  // *** CHỈ TRỪ TIỀN NGƯỜI CHƠI KHI ĐÃ CHỌN NGƯỜI THẮNG ***
+  players.forEach(p => {
+    if (p.selected) {
+      p.balance -= p.cards * game.ticketPrice;
+    }
+  });
+
+  // Cộng tiền cho người thắng
+  uniqueNames.forEach(name => {
+    const player = players.find(p => p.name === name);
+    if (player) player.balance += share;
+  });
+
+  // Lưu vào lịch sử
+  history.push({
+    round: roundCount + 1,
+    winners: uniqueNames,
+    total: game.totalMoney,
+    share: share,
+    selectedPlayers: selectedPlayers,
+    ticketPrice: game.ticketPrice
+  });
+  
+  localStorage.setItem("history", JSON.stringify(history));
+  renderHistory();
+
+  roundCount++;
+  localStorage.removeItem("currentGame");
+  document.getElementById("winner-section").style.display = "none";
+  
+  document.getElementById("ticketPrice").value = "";
   
   saveAll();
+  
+  alert(`Đã xác nhận ${uniqueNames.length} người thắng, nhận ${share.toLocaleString()} VNĐ!`);
 }
 
-function setWinner() {
-  const winnerName = document.getElementById("winner").value;
-  const game = JSON.parse(localStorage.getItem("currentGame"));
-
-  if (!winnerName || !game) return;
-
-  const winner = players.find(p => p.name === winnerName);
-  if (winner) {
-    winner.balance += game.totalMoney;
-    roundCount++;
-    localStorage.removeItem("currentGame");
-    document.getElementById("winner-section").style.display = "none";
-    saveAll();
+function resetBalances() {
+  if (players.length === 0) {
+    alert("Không có shark để reset!");
+    return;
   }
+
+  showConfirmModal(
+    "Reset số dư",
+    `Muốn đặt lại số dư của tất cả các shark về 0? 
+    \n- Lịch sử ván chơi sẽ được giữ nguyên
+    \n- Chỉ số dư hiện tại được reset
+    \n- Không thể hoàn tác!`,
+    () => {
+      players.forEach(p => p.balance = 0);
+      saveAll();
+      alert("Đã reset số dư thành công!");
+    }
+  );
 }
 
-renderTable();
-
-document.addEventListener("DOMContentLoaded", function () {
-  loadFromStorage();
-});
-
-
-// Hàm xóa toàn bộ lịch sử
 function deleteAllHistory() {
   if (history.length === 0) {
     alert("Không có lịch sử để xóa!");
     return;
   }
 
-  // Tạo modal xác nhận
   showConfirmModal(
-    "Xóa toàn bộ lịch sử",
-    `Bạn có chắc muốn xóa tất cả ${history.length} ván chơi? Hành động này sẽ: 
-    \n- Hoàn tiền cho tất cả người chơi
-    \n- Trừ tiền của tất cả người thắng
+    "Xóa toàn bộ lịch sử?",
+    `Muốn xóa tất cả ${history.length} ván chơi? Hành động này sẽ: 
+    \n- Hoàn tiền cho tất cả shark
+    \n- Trừ tiền của tất cả shark thắng
     \n- Không thể hoàn tác!`,
     () => {
-      // Hoàn tiền cho tất cả người chơi từ mỗi ván trong lịch sử
       history.forEach(game => {
         if (!game.total || !game.share || !Array.isArray(game.winners)) return;
 
-        // Hoàn tiền cho người tham gia
         if (Array.isArray(game.selectedPlayers)) {
           const numSelected = game.selectedPlayers.length;
           const refundPerPlayer = Math.floor(game.total / numSelected);
@@ -343,22 +373,18 @@ function deleteAllHistory() {
           players.forEach(p => p.balance += refundPerPlayer);
         }
 
-        // Trừ tiền người thắng
         game.winners.forEach(winnerName => {
           const winner = players.find(p => p.name === winnerName);
           if (winner) winner.balance -= game.share;
         });
       });
 
-      // Xóa lịch sử
       history = [];
       roundCount = 0;
       
-      // Lưu vào localStorage
       localStorage.setItem("history", JSON.stringify(history));
       localStorage.setItem("roundCount", roundCount);
       
-      // Cập nhật giao diện
       renderTable();
       renderHistory();
       saveAll();
@@ -368,25 +394,22 @@ function deleteAllHistory() {
   );
 }
 
-// Hàm hiển thị modal xác nhận
 function showConfirmModal(title, message, onConfirm) {
-  // Tạo overlay
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   
-  // Tạo nội dung modal
   const modal = document.createElement('div');
   modal.className = 'modal-content';
   
   modal.innerHTML = `
     <h3><i class="fas fa-exclamation-triangle" style="color: var(--danger-color);"></i> ${title}</h3>
-    <p>${message}</p>
+    <p>${message.replace(/\n/g, '<br>')}</p>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">
         <i class="fas fa-times"></i> Hủy
       </button>
       <button class="btn btn-danger" id="confirm-delete">
-        <i class="fas fa-trash-alt"></i> Xóa tất cả
+        <i class="fas fa-trash-alt"></i> Xác nhận
       </button>
     </div>
   `;
@@ -394,136 +417,18 @@ function showConfirmModal(title, message, onConfirm) {
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
   
-  // Xử lý nút xác nhận
   document.getElementById('confirm-delete').addEventListener('click', () => {
     onConfirm();
     overlay.remove();
   });
   
-  // Click outside để đóng
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) overlay.remove();
   });
 }
 
-// Sửa lại hàm setWinners để kiểm tra người chiến thắng
-function setWinners() {
-  const game = JSON.parse(localStorage.getItem("currentGame"));
-  if (!game) return alert("Không có dữ liệu ván!");
+renderTable();
 
-  const selects = document.querySelectorAll(".winner-select");
-  const winnerNames = Array.from(selects)
-    .map(select => select.value)
-    .filter(name => name); // Loại bỏ giá trị rỗng
-
-  // Kiểm tra nếu không chọn người chiến thắng
-  if (winnerNames.length === 0) {
-    alert("Vui lòng chọn ít nhất một người chiến thắng!");
-    return;
-  }
-
-  // Kiểm tra xem có chọn người không tham gia ván này không
-  const selectedPlayers = game.selectedPlayers || players.filter(p => p.selected).map(p => p.name);
-  const invalidWinners = winnerNames.filter(name => !selectedPlayers.includes(name));
-  
-  if (invalidWinners.length > 0) {
-    alert(`Người chơi "${invalidWinners.join(', ')}" không tham gia ván này!`);
-    return;
-  }
-
-  const uniqueNames = [...new Set(winnerNames)];
-  const share = Math.floor(game.totalMoney / uniqueNames.length);
-  
-  // Cập nhật số dư cho người thắng
-  uniqueNames.forEach(name => {
-    const player = players.find(p => p.name === name);
-    if (player) player.balance += share;
-  });
-
-  // Lưu vào lịch sử
-  history.push({
-    round: roundCount + 1,
-    winners: uniqueNames,
-    total: game.totalMoney,
-    share: share,
-    selectedPlayers: selectedPlayers
-  });
-  
-  localStorage.setItem("history", JSON.stringify(history));
-  renderHistory();
-
-  roundCount++;
-  localStorage.removeItem("currentGame");
-  document.getElementById("winner-section").style.display = "none";
-  saveAll();
-  
-  // Thông báo thành công
-  alert(`Đã xác nhận ${uniqueNames.length} người thắng, mỗi người nhận ${share.toLocaleString()} VNĐ!`);
-}
-
-// Thêm kiểm tra khi tạo dropdown người thắng
-function createWinnerSelect() {
-  const container = document.createElement("div");
-  container.className = "winner-select-container";
-  
-  const select = document.createElement("select");
-  select.className = "winner-select form-input";
-  select.required = true; // Thêm required
-  
-  // Option mặc định
-  const defaultOption = document.createElement("option");
-  defaultOption.value = "";
-  defaultOption.textContent = "-- Chọn người thắng --";
-  defaultOption.selected = true;
-  defaultOption.disabled = true; // Không cho phép chọn lại option này
-  select.appendChild(defaultOption);
-  
-  // Lấy danh sách người tham gia ván hiện tại
-  const game = JSON.parse(localStorage.getItem("currentGame"));
-  const selectedPlayers = game?.selectedPlayers || players.filter(p => p.selected).map(p => p.name);
-  
-  // Thêm options - chỉ hiển thị người tham gia
-  players.forEach(player => {
-    if (selectedPlayers.includes(player.name)) {
-      const option = document.createElement("option");
-      option.value = player.name;
-      option.textContent = player.name;
-      select.appendChild(option);
-    }
-  });
-  
-  // Thêm nút xóa
-  if (document.querySelectorAll(".winner-select-container").length > 0) {
-    const removeBtn = document.createElement("button");
-    removeBtn.className = "remove-winner-btn";
-    removeBtn.innerHTML = '<i class="fas fa-times"></i>';
-    removeBtn.onclick = function() {
-      container.remove();
-    };
-    container.appendChild(removeBtn);
-  }
-  
-  container.appendChild(select);
-  return container;
-}
-
-function addWinnerSelect() {
-  const container = document.getElementById("winner-dropdowns");
-  const game = JSON.parse(localStorage.getItem("currentGame"));
-  const selectedPlayers = game?.selectedPlayers || players.filter(p => p.selected).map(p => p.name);
-  
-  const currentSelects = document.querySelectorAll(".winner-select").length;
-  
-  if (currentSelects >= selectedPlayers.length) {
-    alert(`Không thể thêm quá số lượng người tham gia (${selectedPlayers.length} người)!`);
-    return;
-  }
-  
-  if (container.children.length === 0) {
-    const firstSelect = createWinnerSelect();
-    firstSelect.querySelector(".remove-winner-btn")?.remove();
-    container.appendChild(firstSelect);
-  } else {
-    container.appendChild(createWinnerSelect());
-  }
-}
+document.addEventListener("DOMContentLoaded", function () {
+  loadFromStorage();
+});

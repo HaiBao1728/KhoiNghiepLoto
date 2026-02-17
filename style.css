@@ -427,3 +427,45 @@ body {
   gap: 10px;
   justify-content: flex-end;
 }
+
+/* Nút reset số dư */
+.btn-warning {
+  background-color: var(--warning-color);
+  color: var(--dark-color);
+}
+
+.btn-warning:hover {
+  background-color: #e0a800;
+}
+
+/* Phần header với các nút */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.section-header .btn-group {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Responsive cho nút reset */
+@media (max-width: 768px) {
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .section-header .btn-group {
+    width: 100%;
+  }
+  
+  .section-header .btn-group .btn {
+    flex: 1;
+  }
+}
